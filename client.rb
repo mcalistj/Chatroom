@@ -5,9 +5,9 @@ class Client
     @request = nil
     @response = nil
     listen
-    #send
+    send
     #base_test
-    kill_test
+    #kill_test
     @request.join
     @response.join
   end

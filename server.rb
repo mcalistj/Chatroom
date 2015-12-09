@@ -19,7 +19,6 @@ class Server
   def run
     loop {
       Thread.start(@server.accept) do | client |
-        @join_id += 1
         firstline = client.gets
         puts "#{firstline}"
         if firstline.include? "KILL_SERVICE" then
@@ -27,52 +26,67 @@ class Server
           @server.close
           puts "Successfully deleted"
         elsif firstline.include? "HELO" then
-          response_neccessary(client, $port, firstline)
+          response_neccessary(client, firstline)
         elsif firstline.include? "JOIN_CHATROOM" then
-          chatroom_name = firstline.sub!(/^JOIN_CHATROOM: /, "")
+          chatroom_name = firstline.sub!(/^JOIN_CHATROOM:/, "")
           chatroom_name = chatroom_name.strip
+          puts "#{chatroom_name}"
           client_ip = client.gets
+          client_ip = client_ip.sub!(/CLIENT_IP:/, "")
+          client_ip = client_ip.strip
+          puts "#{client_ip}"
           port = client.gets
+          port = port.sub!(/PORT:/, "")
+          port = port.strip
+          puts "#{port}"
           client_name = client.gets
-          client_name = client_name.sub!(/\s+CLIENT_NAME: /, "")
+          client_name = client_name.sub!(/CLIENT_NAME:/, "") #name.sub!(/\s+CLIENT_NAME:/, "")
           client_name = client_name.strip
-        end
-       #client.close                            # Disconnect from the client
-            
-        if @rooms.empty?
-          puts "#{@room_id}"
-          room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
-          @room_id += 1
-          client.puts"room_id is getting incremented"
-        else
-          @rooms.each do |x| #@connections[:chatrooms].each do |x|
-            if x.name == chatroom_name
-              client.puts "Trying to add #{client_name}"
-              x.add( chatroom_name, client_name, client, @join_id )
-            else
-              room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
-              @room_id += 1
-              client.puts"room_id is getting incremented"
+          puts "#{client_name}"
+  
+          if @rooms.empty?
+            room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
+            @rooms << room_obj
+            @room_id += 1
+          else
+            @rooms.each do |x| #@connections[:chatrooms].each do |x|
+              if x.name == chatroom_name
+                x.add( chatroom_name, client_name, client, @join_id )
+                room_obj = x
+              else
+                room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
+                @rooms << room_obj
+                @room_id += 1
+              end
             end
           end
+
+          @rooms.each do |x|
+            puts "#{x.inspect}"
+            puts "#{x.room}"
+          end
+          
+          @join_id += 1
+
+          loop {
+            msg = client.gets.chomp
+
+            puts "#{room_obj.room}"
+            room_obj.room.each do |other_name, other_client|
+              unless other_name == client_name
+                other_client.puts "#{client_name}: #{msg}"
+              end
+            end
+            }
+          end
         end
-
-        @rooms << room_obj
-
-        @rooms.each do |x|
-          puts "#{x.inspect}"
-        end
-
-        client.puts "Connection established, You have joined chatroom, #{chatroom_name}, with chatroom id, id"
-        listen_user_messages( client_name, client )
-      end
     }.join
   end
- 
- end
+
+end
   
-def response_neccessary(client, port, line)
-  client.puts "#{line}" + "IP:#{get_ip_address()}\nPort:#{port}\nStudentID:02484893aa070fa3e7d2f5b2d14c90823425659e554bab3ddb69890974f95ada\n"
+def response_neccessary(client, line)
+  client.puts "#{line}" + "IP:#{get_ip_address()}\nPort:#{$port}\nStudentID:02484893aa070fa3e7d2f5b2d14c90823425659e554bab3ddb69890974f95ada\n"
   client.close
 end
 
