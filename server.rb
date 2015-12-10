@@ -70,11 +70,28 @@ class Server
 
           loop {
             msg = client.gets.chomp
-
-            puts "#{room_obj.room}"
-            room_obj.room.each do |other_name, other_client|
-              unless other_name == client_name
-                other_client.puts "#{client_name}: #{msg}"
+            if msg.include? "LEAVE_CHATROOM"
+              room_leaving = msg.sub!(/LEAVE_CHATROOM:/, "")
+              join_id = client.gets.chomp
+              join_id = join_id.sub!(/JOIN_ID:/, "")
+              client_name = client.gets.chomp
+              client_name = client_name.sub!(/CLIENT_NAME:/, "")
+              puts "I've reached here"
+              room_obj.room.each do |other_name, client|
+                client.puts "LEFT_CHATROOM: #{@room_id}\nJOIN_ID: #{join_id}
+              end
+            end
+            else
+              room_ref = msg.sub!(/CHAT:/, "")
+              join_id = client.gets.chomp
+              client_name = client.gets.chomp
+              client_name = client_name.sub!(/CLIENT_NAME:/, "")
+              message = client.gets
+              puts "#{message}"
+              room_obj.room.each do |other_name, client|
+                #unless other_name == client_name
+                  client.puts "CHAT: #{room_ref}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{message}\n"
+                #end
               end
             end
             }
@@ -91,7 +108,7 @@ def response_neccessary(client, line)
 end
 
 def get_ip_address()
-  return "52.91.206.5"
+  return "52.165.159.206"
   #return open('http://whatismyip.akamai.com').read
   #Socket.ip_address_list.detect{|intf| intf.ipv4_private?}.ip_address
 end
