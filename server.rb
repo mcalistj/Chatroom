@@ -26,49 +26,92 @@ class Server
         if firstline.include? "KILL_SERVICE" then
           client.close
           @server.close
-          puts "Successfully deleted"
         elsif firstline.include? "HELO" then
           response_neccessary(client, firstline)
         elsif firstline.include? "JOIN_CHATROOM" then
           room_obj = join_chatroom(firstline, client)
+          @rooms << room_obj
 
           loop {
             msg = client.gets.chomp
             puts "#{msg}"
             if msg.include? "LEAVE_CHATROOM"
-              room_leaving = msg.sub!(/LEAVE_CHATROOM:/, "")
+              room_leaving = msg.sub!(/LEAVE_CHATROOM: /, "")
+              room_obj = get_room(room_leaving)
               join_id = client.gets.chomp
-              join_id = join_id.sub!(/JOIN_ID:/, "")
+              join_id = join_id.sub!(/JOIN_ID: /, "")
               client_name = client.gets.chomp
-              client_name = client_name.sub!(/CLIENT_NAME:/, "")
+              client_name = client_name.sub!(/CLIENT_NAME: /, "")
               client.puts "LEFT_CHATROOM: #{room_leaving}\nJOIN_ID: #{join_id}\n"
-              client.puts "CHAT: #{room_leaving}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
-              #client.puts "CHAT: #{room_leaving}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{message}\n\n"
-              #room_obj.room.each do |other_name, other_client|
-              #  unless other_client == client
-                  #other_client.puts "CHAT: #{room_leaving}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
-              #  end
-              #end
+              room_obj.room.each do |other_name, other_client|
+              #unless other_client == client
+                other_client.puts "CHAT: #{room_leaving}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
+              end
+              room_obj.room.delete(client_name)
             elsif msg.include? "CHAT:"
-              puts "CHAT: I've reached here"
-              room_ref = msg.sub!(/CHAT:/, "")
+              room_ref = msg.sub!(/CHAT: /, "")
+              room_object = get_room(room_ref)
               join_id = client.gets.chomp
               client_name = client.gets.chomp
               client_name = client_name.sub!(/CLIENT_NAME:/, "")
-              message = client.gets
-              room_obj.room.each do |other_name, client|
+              message = client.gets.chomp
+              #client.puts "CHAT: #{room_ref}\nCLIENT_NAME: #{client_name}\n#{message}\n\n"
+              #puts "#{room_obj}"
+              room_object.room.each do |other_name, client|
                 #unless other_name == client_name
-                  client.puts "CHAT: #{room_ref}\nCLIENT_NAME: #{client_name}\nMESSAGE: #{message}\n\n"
+                  client.puts "CHAT: #{room_ref}\nCLIENT_NAME: #{client_name}\n#{message}\n\n"
                 #end
               end
             elsif msg.include? "JOIN_CHATROOM"
-              puts "I've reached here"
               join_chatroom(msg, client)
+            elsif msg.include? "DISCONNECT"
+              port = client.gets.chomp
+              port = port.sub!(/PORT:/, "")
+              client_name = client.gets.chomp
+              client_name = client_name.sub!(/CLIENT_NAME:/, "")
+              id_room = 1
+              last_room = ""
+              @rooms.each do |fetch_room|
+                unless last_room == fetch_room.room_name
+                last_room = fetch_room.room_name
+                puts "Entered unless"
+                if fetch_room.room.has_key?(client_name)
+                  #client.puts "CHAT: #{fetch_room.room_id}.\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
+                  puts "This is the #{id_room} iteration"
+                  id_room += 1
+                  puts "#{fetch_room.room}"
+                  puts "#{fetch_room.room_id}"
+                  fetch_room.room.each do |other_name, other_client|
+                   #unless other_name == client_name
+                      puts "#{other_name}, #{other_client}"
+                      other_client.puts "CHAT: #{fetch_room.room_id}.\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
+                      puts "CHAT: #{fetch_room.room_id}.\nCLIENT_NAME: #{client_name}\nMESSAGE: #{client_name} has left this chatroom.\n\n"
+                    #end
+                  end
+                  fetch_room.room.delete(client_name)
+                end
+              end
+            end
+             puts "Disconnect msg"
+             client.close
             end
           }
         end
       end
     }.join
+  end
+end
+
+def get_room(room_ref)
+  if room_ref.include? "room"
+  else
+    room_ref = "room" + room_ref
+  end
+  @rooms.each do |fetch_room|
+    if fetch_room.room_name == room_ref
+      room_obj = fetch_room
+      return room_obj
+    end
   end
 end
 
@@ -82,7 +125,7 @@ def join_chatroom(firstline, client)
   client_name = client_name.sub!(/CLIENT_NAME:/, "") #name.sub!(/\s+CLIENT_NAME:/, "")
   
   if @rooms.empty?
-    puts "I've reached here empty"
+    puts "The room id is #{@room_id}"
     room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
     @rooms << room_obj
     @room_id += 1
@@ -90,22 +133,16 @@ def join_chatroom(firstline, client)
   else
     @rooms.each do |x| #@connections[:chatrooms].each do |x|
       if x.room_name == chatroom_name
-        puts "I've reached here add"
-        x.add( chatroom_name, client_name, client, @join_id )
+        x.add(chatroom_name, client_name, client, @join_id )
         room_obj = x
         return room_obj
       end
     end
   end
-      puts "I've reached here else"
+      puts "The room id is #{@room_id}"
       room_obj = Room.new(chatroom_name, client_name, client, @room_id, @join_id)
       @rooms << room_obj
       @room_id += 1
-  
-  @rooms.each do |x|
-    puts "#{x.inspect}"
-    puts "#{x.room}"
-  end
   
  return room_obj
 end
@@ -116,9 +153,8 @@ def response_neccessary(client, line)
 end
 
 def get_ip_address()
-  return "52.90.104.247"
-  #return open('http://whatismyip.akamai.com').read
-  #Socket.ip_address_list.detect{|intf| intf.ipv4_private?}.ip_address
+  return "52.23.177.84"
+  #wget http://ipinfo.io/ip -qO -
 end
 
 $hostname = '0.0.0.0'
